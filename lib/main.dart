@@ -15,7 +15,7 @@ Future<void> main() async {
       androidNotificationChannelId: 'com.harshshah.novamusic.playback',
       androidNotificationChannelName: 'NovaMusic playback',
       androidNotificationOngoing: true,
-      androidStopForegroundOnPause: false,
+      androidStopForegroundOnPause: true,
     ),
   );
   runApp(const NovaMusicApp());
