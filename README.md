@@ -5,3 +5,7 @@ Premium Flutter Android music player with a unified search experience. Provider 
 The app uses a provider abstraction so legal/free catalogs can be combined behind one interface. The initial implementation includes Audius and a Jamendo adapter.
 
 GitHub Actions builds a release APK and uploads it as `NovaMusic-APK`.
+
+## Build status
+
+The main branch is configured to build the release APK automatically.
