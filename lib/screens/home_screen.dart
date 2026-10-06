@@ -33,7 +33,8 @@ class _HomeScreenState extends State<HomeScreen> {
       h?.mediaItem.listen((item) {
         if (!mounted) return;
         final all = [...results, ...liked, ...recent];
-        final match = all.where((t) => t.id == item.id).firstOrNull;
+        Track? match;
+        for (final t in all) { if (t.id == item.id) { match = t; break; } }
         if (match != null) setState(() => current = match);
       });
       if (mounted) setState(() {});
