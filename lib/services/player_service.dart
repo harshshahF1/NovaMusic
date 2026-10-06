@@ -27,9 +27,12 @@ class NovaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         speed: _player.speed,
       ));
     });
+
     _player.currentIndexStream.listen((index) {
       final i = index ?? 0;
-      if (i < queue.value.length) mediaItem.add(queue.value[i]);
+      if (i >= 0 && i < queue.value.length) {
+        mediaItem.add(queue.value[i]);
+      }
     });
   }
 
@@ -41,25 +44,73 @@ class NovaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     ProcessingState.completed => AudioProcessingState.completed,
   };
 
-  Future<void> load(Track track) async {
-    final item = MediaItem(
+  Future<void> loadQueue(List<Track> tracks, int startIndex) async {
+    if (tracks.isEmpty) return;
+
+    final items = tracks.map((track) => MediaItem(
       id: track.id,
       title: track.title,
       artist: track.artist,
       album: track.album,
       artUri: track.artworkUrl == null ? null : Uri.tryParse(track.artworkUrl!),
       duration: track.duration,
+    )).toList();
+
+    queue.add(items);
+
+    final sources = <AudioSource>[];
+    for (var i = 0; i < tracks.length; i++) {
+      sources.add(AudioSource.uri(
+        Uri.parse(tracks[i].streamUrl),
+        tag: items[i],
+      ));
+    }
+
+    await _player.setAudioSources(
+      sources,
+      initialIndex: startIndex.clamp(0, sources.length - 1),
+      initialPosition: Duration.zero,
+      useLazyPreparation: true,
     );
-    queue.add([item]);
-    mediaItem.add(item);
-    await _player.setUrl(track.streamUrl);
+    mediaItem.add(items[startIndex.clamp(0, items.length - 1)]);
   }
 
-  @override Future<void> play() => _player.play();
-  @override Future<void> pause() => _player.pause();
-  @override Future<void> stop() => _player.stop();
-  @override Future<void> seek(Duration position) => _player.seek(position);
-  @override Future<void> skipToNext() async {}
-  @override Future<void> skipToPrevious() async {}
+  Future<void> load(Track track) => loadQueue([track], 0);
+
+  @override
+  Future<void> play() => _player.play();
+
+  @override
+  Future<void> pause() => _player.pause();
+
+  @override
+  Future<void> stop() => _player.stop();
+
+  @override
+  Future<void> seek(Duration position) => _player.seek(position);
+
+  @override
+  Future<void> skipToNext() async {
+    if (_player.hasNext) {
+      await _player.seekToNext();
+      await _player.play();
+    }
+  }
+
+  @override
+  Future<void> skipToPrevious() async {
+    if (_player.hasPrevious) {
+      await _player.seekToPrevious();
+      await _player.play();
+    } else {
+      await _player.seek(Duration.zero);
+    }
+  }
+
+  @override
+  Future<void> onTaskRemoved() async {}
+
   bool get playing => _player.playing;
+  Stream<Duration> get positionStream => _player.positionStream;
+  Stream<Duration?> get durationStream => _player.durationStream;
 }
