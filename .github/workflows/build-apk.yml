@@ -35,13 +35,22 @@ jobs:
           p = Path('android/app/src/main/AndroidManifest.xml')
           s = p.read_text()
           s = s.replace('android:label="nova_music"', 'android:label="NovaMusic"')
-          s = s.replace(
-              '<uses-permission android:name="android.permission.INTERNET" />',
-              '<uses-permission android:name="android.permission.INTERNET" />\n'
-              '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n'
-              '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n'
-              '    <uses-permission android:name="android.permission.WAKE_LOCK" />'
+          permissions = [
+              'android.permission.INTERNET',
+              'android.permission.FOREGROUND_SERVICE',
+              'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+              'android.permission.WAKE_LOCK',
+          ]
+          insert = ''.join(
+              f'    <uses-permission android:name="{p}" />\\n'
+              for p in permissions
+              if f'android.permission.{p.split(".")[-1]}' not in s
           )
+          if insert:
+              s = s.replace('\\n    <application', '\\n' + insert + '    <application', 1)
+          # Guarantee INTERNET is present even if the generated template changes.
+          if 'android.permission.INTERNET' not in s:
+              s = s.replace('<manifest', '<manifest\\n    <uses-permission android:name="android.permission.INTERNET" />', 1)
           marker = '        <meta-data android:name="flutterEmbedding" android:value="2" />'
           service = (
               '        <service android:name="com.ryanheise.audioservice.AudioService" '
@@ -68,6 +77,23 @@ jobs:
           print('Audius HTTP:', r.status, 'results:', len(data))
           if not data:
             raise SystemExit('Audius search returned zero results')
+          PY
+
+      - name: Validate Android network permissions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('android/app/src/main/AndroidManifest.xml').read_text()
+          required = [
+              'android.permission.INTERNET',
+              'android.permission.FOREGROUND_SERVICE',
+              'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+              'android.permission.WAKE_LOCK',
+          ]
+          missing = [p for p in required if p not in s]
+          if missing:
+              raise SystemExit('Missing Android permissions: ' + ', '.join(missing))
+          print('Android network/media permissions validated')
           PY
 
       - name: Flutter pub get
