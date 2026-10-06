@@ -10,23 +10,35 @@ class LibraryService {
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
   Map<String, dynamic> _map(Track t) => {
-    'id': t.id, 'title': t.title, 'artist': t.artist, 'album': t.album,
-    'artworkUrl': t.artworkUrl, 'streamUrl': t.streamUrl,
-    'duration': t.duration?.inSeconds, 'source': t.source,
+    'id': t.id,
+    'title': t.title,
+    'artist': t.artist,
+    'album': t.album,
+    'artworkUrl': t.artworkUrl,
+    'streamUrl': t.streamUrl,
+    'duration': t.duration?.inSeconds,
+    'source': t.source,
   };
 
   Track _track(Map<String, dynamic> m) => Track(
-    id: '\${m['id']}', title: '\${m['title']}', artist: '\${m['artist']}',
-    album: m['album']?.toString(), artworkUrl: m['artworkUrl']?.toString(),
-    streamUrl: '\${m['streamUrl']}',
+    id: m['id']?.toString() ?? '',
+    title: m['title']?.toString() ?? '',
+    artist: m['artist']?.toString() ?? '',
+    album: m['album']?.toString(),
+    artworkUrl: m['artworkUrl']?.toString(),
+    streamUrl: m['streamUrl']?.toString() ?? '',
     duration: m['duration'] == null ? null : Duration(seconds: (m['duration'] as num).toInt()),
-    source: '\${m['source'] ?? 'audius'}',
+    source: m['source']?.toString() ?? 'audius',
   );
 
   Future<List<Track>> _read(String key) async {
     final p = await _prefs;
     return (p.getStringList(key) ?? []).map((x) {
-      try { return _track(jsonDecode(x) as Map<String, dynamic>); } catch (_) { return null; }
+      try {
+        return _track(jsonDecode(x) as Map<String, dynamic>);
+      } catch (_) {
+        return null;
+      }
     }).whereType<Track>().toList();
   }
 
@@ -36,12 +48,15 @@ class LibraryService {
   }
 
   Future<List<Track>> liked() => _read(likedKey);
-  Future<bool> isLiked(String id) async => (await liked()).any((t) => t.id == id);
 
   Future<void> toggleLiked(Track t) async {
     final list = await liked();
     final i = list.indexWhere((x) => x.id == t.id);
-    if (i >= 0) { list.removeAt(i); } else { list.insert(0, t); }
+    if (i >= 0) {
+      list.removeAt(i);
+    } else {
+      list.insert(0, t);
+    }
     await _write(likedKey, list);
   }
 
@@ -69,11 +84,11 @@ class LibraryService {
     }
   }
 
-  Future<List<Track>> playlist(String name) => _read('nova_playlist_\$name');
+  Future<List<Track>> playlist(String name) => _read('nova_playlist_' + name);
 
   Future<void> addToPlaylist(String name, Track t) async {
     final list = await playlist(name);
     if (!list.any((x) => x.id == t.id)) list.insert(0, t);
-    await _write('nova_playlist_\$name', list);
+    await _write('nova_playlist_' + name, list);
   }
 }
