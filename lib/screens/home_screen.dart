@@ -24,9 +24,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> play(Track t) async {
     setState(() => current = t);
+    await initAudioHandler();
+    final handler = audioHandler;
+    if (handler == null) return;
     try {
-      await audioHandler.load(t);
-      await audioHandler.play();
+      await handler.load(t);
+      await handler.play();
     } catch (_) {}
   }
 
@@ -158,40 +161,44 @@ class _MiniPlayer extends StatelessWidget {
   const _MiniPlayer({required this.track});
 
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: const BoxDecoration(
-      color: Color(0xFF151821),
-      border: Border(top: BorderSide(color: Colors.white12)),
-    ),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-    child: Row(children: [
-      ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          width: 44, height: 44,
-          child: track.artworkUrl == null
-            ? const ColoredBox(color: Color(0xFF20232C), child: Icon(Icons.music_note))
-            : CachedNetworkImage(imageUrl: track.artworkUrl!, fit: BoxFit.cover),
-        ),
+  Widget build(BuildContext context) {
+    final handler = audioHandler;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF151821),
+        border: Border(top: BorderSide(color: Colors.white12)),
       ),
-      const SizedBox(width: 10),
-      Expanded(child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-          Text(track.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.white54)),
-        ],
-      )),
-      IconButton(
-        onPressed: () => audioHandler.playing ? audioHandler.pause() : audioHandler.play(),
-        icon: StreamBuilder<bool>(
-          stream: audioHandler.playbackState.map((s) => s.playing).distinct(),
-          initialData: false,
-          builder: (_, snap) => Icon(snap.data == true ? Icons.pause_rounded : Icons.play_arrow_rounded),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      child: Row(children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            width: 44, height: 44,
+            child: track.artworkUrl == null
+              ? const ColoredBox(color: Color(0xFF20232C), child: Icon(Icons.music_note))
+              : CachedNetworkImage(imageUrl: track.artworkUrl!, fit: BoxFit.cover),
+          ),
         ),
-      ),
-    ]),
-  );
+        const SizedBox(width: 10),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(track.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.white54)),
+          ],
+        )),
+        if (handler != null)
+          IconButton(
+            onPressed: () => handler.playing ? handler.pause() : handler.play(),
+            icon: StreamBuilder<bool>(
+              stream: handler.playbackState.map((s) => s.playing).distinct(),
+              initialData: false,
+              builder: (_, snap) => Icon(snap.data == true ? Icons.pause_rounded : Icons.play_arrow_rounded),
+            ),
+          ),
+      ]),
+    );
+  }
 }
 
 class _EmptyState extends StatelessWidget {
