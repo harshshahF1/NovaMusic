@@ -1,0 +1,26 @@
+name: nova_music
+description: NovaMusic - premium unified music streaming experience.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+  flutter: '>=3.32.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.5.0
+  just_audio: ^0.10.5
+  audio_service: ^0.18.18
+  cached_network_image: ^3.4.1
+  shared_preferences: ^2.5.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
