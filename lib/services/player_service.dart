@@ -70,7 +70,6 @@ class NovaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       sources,
       initialIndex: startIndex.clamp(0, sources.length - 1),
       initialPosition: Duration.zero,
-      useLazyPreparation: true,
     );
     mediaItem.add(items[startIndex.clamp(0, items.length - 1)]);
   }
