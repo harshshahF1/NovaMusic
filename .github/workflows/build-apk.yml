@@ -47,10 +47,10 @@ jobs:
               if f'android:name="{p}"' not in s
           )
           if insert:
-              s = s.replace('\\n    <application', '\\n' + insert + '    <application', 1)
+              s = s.replace('\n    <application', '\n' + insert + '    <application', 1)
           # Guarantee INTERNET is present even if the generated template changes.
           if 'android.permission.INTERNET' not in s:
-              s = s.replace('<manifest', '<manifest\\n    <uses-permission android:name="android.permission.INTERNET" />', 1)
+              s = s.replace('<manifest', '<manifest\n    <uses-permission android:name="android.permission.INTERNET" />', 1)
           marker = '        <meta-data android:name="flutterEmbedding" android:value="2" />'
           service = (
               '        <service android:name="com.ryanheise.audioservice.AudioService" '
