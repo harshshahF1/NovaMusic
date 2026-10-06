@@ -41,11 +41,6 @@ class _YouTubePlayerSheetState extends State<YouTubePlayerSheet> {
     ));
   }
 
-  Future<void> _js(String command) async {
-    if (!ready) return;
-    try { await controller.runJavaScript(command); } catch (_) {}
-  }
-
   Future<void> _next() async {
     if (index + 1 >= queue.length) return;
     setState(() => index++);
