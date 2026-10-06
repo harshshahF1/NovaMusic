@@ -125,7 +125,9 @@ jobs:
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
       - name: Build release APK
-        run: flutter build apk --release
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: flutter build apk --release --dart-define=YOUTUBE_API_KEY="$YOUTUBE_API_KEY"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
