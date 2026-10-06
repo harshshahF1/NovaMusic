@@ -13,32 +13,56 @@ class AudiusProvider implements MusicProvider {
   @override
   Future<List<Track>> search(String query) async {
     final uri = Uri.parse('$_base/v1/tracks/search').replace(queryParameters: {
-      'query': query,
-      'app_name': _appName,
-      'limit': '25',
-      'offset': '0',
+      'query': query, 'app_name': _appName, 'limit': '50', 'offset': '0',
     });
-    final response = await http.get(uri).timeout(const Duration(seconds: 10));
+    final response = await http.get(uri, headers: {
+      'Accept': 'application/json', 'User-Agent': 'NovaMusic/1.0',
+    }).timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) return [];
+
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final data = (body['data'] as List?) ?? const [];
-    return data.map((raw) {
+    final q = query.toLowerCase().trim();
+    final tracks = <Track>[];
+
+    for (final raw in data) {
       final t = raw as Map<String, dynamic>;
-      final id = '${t['id'] ?? ''}';
-      final artwork = (t['artwork'] is Map)
+      final genre = t['genre']?.toString().toLowerCase().trim() ?? '';
+      final type = t['track_type']?.toString().toLowerCase().trim() ?? 'track';
+
+      if (type != 'track') continue;
+      if ({'podcast','podcasts','spoken word','spoken-word','audiobook','audiobooks','talk','talk radio'}.contains(genre)) continue;
+
+      final id = t['id']?.toString() ?? '';
+      if (id.isEmpty) continue;
+
+      final artwork = t['artwork'] is Map
           ? (t['artwork']['1000x1000'] ?? t['artwork']['480x480'] ?? t['artwork']['150x150'])
           : null;
       final seconds = (t['duration'] as num?)?.toInt();
-      return Track(
+
+      tracks.add(Track(
         id: 'audius_$id',
-        title: '${t['title'] ?? 'Untitled'}',
-        artist: '${(t['user'] as Map?)?['name'] ?? 'Unknown artist'}',
+        title: t['title']?.toString() ?? 'Untitled',
+        artist: (t['user'] as Map?)?['name']?.toString() ?? 'Unknown artist',
         album: t['genre']?.toString(),
         artworkUrl: artwork?.toString(),
         streamUrl: '$_base/v1/tracks/$id/stream?app_name=$_appName',
         duration: seconds == null ? null : Duration(seconds: seconds),
         source: name,
-      );
-    }).where((t) => t.streamUrl.isNotEmpty).toList();
+      ));
+    }
+
+    int score(Track t) {
+      final title = t.title.toLowerCase();
+      final artist = t.artist.toLowerCase();
+      if (title == q) return 0;
+      if (title.startsWith(q)) return 1;
+      if (title.contains(q)) return 2;
+      if (artist.contains(q)) return 4;
+      return 5;
+    }
+    tracks.sort((a, b) => score(a).compareTo(score(b)));
+    return tracks;
   }
 }
