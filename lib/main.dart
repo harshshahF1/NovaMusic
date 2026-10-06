@@ -4,21 +4,30 @@ import 'services/music_service.dart';
 import 'services/player_service.dart';
 import 'screens/home_screen.dart';
 
-late final NovaAudioHandler audioHandler;
+NovaAudioHandler? audioHandler;
 final musicService = MusicService();
 
-Future<void> main() async {
+Future<void> initAudioHandler() async {
+  if (audioHandler != null) return;
+  try {
+    audioHandler = await AudioService.init(
+      builder: () => NovaAudioHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationChannelId: 'com.harshshah.novamusic.playback',
+        androidNotificationChannelName: 'NovaMusic playback',
+        androidNotificationOngoing: true,
+        androidStopForegroundOnPause: true,
+      ),
+    );
+  } catch (_) {
+    // Keep the main UI available even if Android media-service initialization fails.
+  }
+}
+
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  audioHandler = await AudioService.init(
-    builder: () => NovaAudioHandler(),
-    config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.harshshah.novamusic.playback',
-      androidNotificationChannelName: 'NovaMusic playback',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
-    ),
-  );
   runApp(const NovaMusicApp());
+  initAudioHandler();
 }
 
 class NovaMusicApp extends StatelessWidget {
