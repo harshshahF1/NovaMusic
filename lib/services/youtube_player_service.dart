@@ -80,15 +80,8 @@ class _YouTubePlayerSheetState extends State<YouTubePlayerSheet> {
         const SizedBox(height: 20),
         Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
           IconButton(onPressed: _previous, icon: const Icon(Icons.skip_previous_rounded, size: 42)),
-          FilledButton(
-            style: FilledButton.styleFrom(shape: const CircleBorder(), padding: const EdgeInsets.all(20)),
-            onPressed: () => _js("document.querySelector('iframe')?.contentWindow.postMessage(JSON.stringify({event:'command',func:'playVideo',args:[]}), '*')"),
-            child: const Icon(Icons.play_arrow_rounded, size: 30),
-          ),
-          IconButton(
-            onPressed: () => _js("document.querySelector('iframe')?.contentWindow.postMessage(JSON.stringify({event:'command',func:'pauseVideo',args:[]}), '*')"),
-            icon: const Icon(Icons.pause_rounded, size: 34),
-          ),
+          const Icon(Icons.play_circle_fill_rounded, size: 56),
+
           IconButton(onPressed: _next, icon: const Icon(Icons.skip_next_rounded, size: 42)),
         ]),
         const SizedBox(height: 10),
