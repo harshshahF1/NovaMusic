@@ -22,7 +22,7 @@ Future<void> _createAudioHandler() async {
         androidNotificationChannelId: 'com.harshshah.novamusic.playback',
         androidNotificationChannelName: 'NovaMusic playback',
         androidNotificationOngoing: true,
-        androidStopForegroundOnPause: false,
+        androidStopForegroundOnPause: true,
         androidNotificationIcon: 'mipmap/ic_launcher',
         androidResumeOnClick: true,
       ),
