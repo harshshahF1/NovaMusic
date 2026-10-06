@@ -165,6 +165,24 @@ class _HomeScreenState extends State<HomeScreen> {
   void openPlayer() {
     final t = current;
     if (t == null) return;
+    if (t.isYouTube) {
+      final queue = [...results, ...recent].where((x) => x.isYouTube).fold<List<Track>>([], (out, x) {
+        if (!out.any((y) => y.id == x.id)) out.add(x);
+        return out;
+      });
+      final q = queue.isEmpty ? [t] : queue;
+      final start = q.indexWhere((x) => x.id == t.id);
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: const Color(0xFF08090D),
+        builder: (_) => FractionallySizedBox(
+          heightFactor: .92,
+          child: YouTubePlayerSheet(queue: q, initialIndex: start < 0 ? 0 : start),
+        ),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
