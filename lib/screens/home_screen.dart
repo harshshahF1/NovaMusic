@@ -129,7 +129,7 @@ class _TrackTile extends StatelessWidget {
                   : CachedNetworkImage(
                       imageUrl: track.artworkUrl!,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => Container(
+                      errorWidget: (_, _, _) => Container(
                         color: const Color(0xFF20232C),
                         child: const Icon(Icons.music_note_rounded),
                       ),
@@ -200,7 +200,7 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: Column(children: [
-      Icon(Icons.album_rounded, size: 64, color: Colors.white.withOpacity(.13)),
+      Icon(Icons.album_rounded, size: 64, color: Colors.white.withValues(alpha: .13)),
       const SizedBox(height: 12),
       const Text('Search for something you love', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
       const SizedBox(height: 5),
