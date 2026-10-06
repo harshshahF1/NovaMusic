@@ -309,10 +309,19 @@ class _HomeScreenState extends State<HomeScreen> {
   );
 
   Widget row(Track t) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(vertical: 4),
-    leading: art(t, 56, 56),
-    title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-    subtitle: Text(t.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54)),
+    contentPadding: const EdgeInsets.symmetric(vertical: 7),
+    minLeadingWidth: 68,
+    leading: art(t, 64, 64),
+    title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+    subtitle: Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        t.artist,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Colors.white60, fontSize: 14, fontWeight: FontWeight.w500),
+      ),
+    ),
     trailing: PopupMenuButton<String>(
       onSelected: (v) async {
         if (v == 'play') await play(t);
