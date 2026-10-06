@@ -4,6 +4,7 @@ import '../main.dart';
 import '../models/track.dart';
 import '../services/library_service.dart';
 import '../services/player_service.dart';
+import '../services/youtube_player_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -53,12 +54,40 @@ class _HomeScreenState extends State<HomeScreen> {
     if (q.isEmpty) return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() { loading = true; error = null; tab = 1; });
-    final data = await musicService.search(q);
-    if (!mounted) return;
-    setState(() { results = data; loading = false; });
+    try {
+      final data = await musicService.search(q);
+      if (!mounted) return;
+      setState(() { results = data; loading = false; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        results = [];
+        loading = false;
+        error = e.toString().replaceFirst('Bad state: ', '');
+      });
+    }
   }
 
   Future<void> play(Track t, {List<Track>? sourceQueue}) async {
+    if (t.isYouTube) {
+      final queue = (sourceQueue ?? results).where((x) => x.isYouTube).toList();
+      if (queue.isEmpty) queue.add(t);
+      final start = queue.indexWhere((x) => x.id == t.id);
+      setState(() { current = t; error = null; });
+      await library.addRecent(t);
+      await _refreshLibrary();
+      if (!mounted) return;
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: const Color(0xFF08090D),
+        builder: (_) => FractionallySizedBox(
+          heightFactor: .92,
+          child: YouTubePlayerSheet(queue: queue, initialIndex: start < 0 ? 0 : start),
+        ),
+      );
+      return;
+    }
     setState(() { current = t; playerLoading = true; error = null; });
     await initAudioHandler();
     final h = audioHandler;
