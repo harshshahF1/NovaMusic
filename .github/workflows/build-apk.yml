@@ -44,7 +44,7 @@ jobs:
           insert = ''.join(
               f'    <uses-permission android:name="{p}" />\\n'
               for p in permissions
-              if f'android.permission.{p.split(".")[-1]}' not in s
+              if f'android:name="{p}"' not in s
           )
           if insert:
               s = s.replace('\\n    <application', '\\n' + insert + '    <application', 1)
