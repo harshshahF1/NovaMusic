@@ -6,27 +6,34 @@ class NovaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final AudioPlayer _player = AudioPlayer();
 
   NovaAudioHandler() {
-    _player.playbackEventStream.listen((event) {
-      playbackState.add(playbackState.value.copyWith(
-        controls: [
-          MediaControl.skipToPrevious,
-          if (_player.playing) MediaControl.pause else MediaControl.play,
-          MediaControl.stop,
-          MediaControl.skipToNext,
-        ],
-        systemActions: const {
-          MediaAction.seek,
-          MediaAction.seekForward,
-          MediaAction.seekBackward,
-        },
-        androidCompactActionIndices: const [0, 1, 3],
-        processingState: _processingState(event.processingState),
-        playing: _player.playing,
-        updatePosition: _player.position,
-        bufferedPosition: _player.bufferedPosition,
-        speed: _player.speed,
-      ));
-    });
+    _player.playbackEventStream.listen(
+      (event) {
+        playbackState.add(playbackState.value.copyWith(
+          controls: [
+            MediaControl.skipToPrevious,
+            if (_player.playing) MediaControl.pause else MediaControl.play,
+            MediaControl.stop,
+            MediaControl.skipToNext,
+          ],
+          systemActions: const {
+            MediaAction.seek,
+            MediaAction.seekForward,
+            MediaAction.seekBackward,
+          },
+          androidCompactActionIndices: const [0, 1, 3],
+          processingState: _processingState(event.processingState),
+          playing: _player.playing,
+          updatePosition: _player.position,
+          bufferedPosition: _player.bufferedPosition,
+          speed: _player.speed,
+        ));
+      },
+      onError: (Object error, StackTrace stack) {
+        playbackState.add(playbackState.value.copyWith(
+          processingState: AudioProcessingState.error,
+        ));
+      },
+    );
 
     _player.currentIndexStream.listen((index) {
       final i = index ?? 0;
@@ -56,37 +63,30 @@ class NovaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       duration: track.duration,
     )).toList();
 
-    queue.add(items);
-
+    final safeIndex = startIndex.clamp(0, items.length - 1);
     final sources = <AudioSource>[];
     for (var i = 0; i < tracks.length; i++) {
-      sources.add(AudioSource.uri(
-        Uri.parse(tracks[i].streamUrl),
-        tag: items[i],
-      ));
+      final uri = Uri.tryParse(tracks[i].streamUrl);
+      if (uri == null || !uri.hasScheme) {
+        throw Exception('Invalid stream URL for ' + tracks[i].title);
+      }
+      sources.add(AudioSource.uri(uri, tag: items[i]));
     }
 
-    await _player.setAudioSources(
-      sources,
-      initialIndex: startIndex.clamp(0, sources.length - 1),
-      initialPosition: Duration.zero,
-    );
-    mediaItem.add(items[startIndex.clamp(0, items.length - 1)]);
+    await _player.stop();
+    queue.add(const []);
+    mediaItem.add(null);
+    await _player.setAudioSources(sources, initialIndex: safeIndex, initialPosition: Duration.zero);
+    queue.add(items);
+    mediaItem.add(items[safeIndex]);
   }
 
   Future<void> load(Track track) => loadQueue([track], 0);
 
-  @override
-  Future<void> play() => _player.play();
-
-  @override
-  Future<void> pause() => _player.pause();
-
-  @override
-  Future<void> stop() => _player.stop();
-
-  @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  @override Future<void> play() => _player.play();
+  @override Future<void> pause() => _player.pause();
+  @override Future<void> stop() => _player.stop();
+  @override Future<void> seek(Duration position) => _player.seek(position);
 
   @override
   Future<void> skipToNext() async {
@@ -106,8 +106,7 @@ class NovaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     }
   }
 
-  @override
-  Future<void> onTaskRemoved() async {}
+  @override Future<void> onTaskRemoved() async {}
 
   bool get playing => _player.playing;
   Stream<Duration> get positionStream => _player.positionStream;
