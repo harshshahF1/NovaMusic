@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
     initAudioHandler().then((_) {
       final h = audioHandler;
       h?.mediaItem.listen((item) {
-        if (!mounted) return;
+        if (!mounted || item == null) return;
         final all = [...results, ...liked, ...recent];
         Track? match;
         for (final t in all) { if (t.id == item.id) { match = t; break; } }
