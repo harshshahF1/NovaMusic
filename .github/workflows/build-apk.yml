@@ -1,0 +1,66 @@
+name: Build NovaMusic APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android project
+        run: flutter create --platforms=android --org com.harshshah --project-name nova_music .
+
+      - name: Configure Android media service
+        shell: bash
+        run: |
+          python3 - <<'PY2'
+          from pathlib import Path
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          s = p.read_text()
+          s = s.replace('android:label="nova_music"', 'android:label="NovaMusic"')
+          s = s.replace(
+              '<uses-permission android:name="android.permission.INTERNET" />',
+              '<uses-permission android:name="android.permission.INTERNET" />\n'
+              '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n'
+              '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n'
+              '    <uses-permission android:name="android.permission.WAKE_LOCK" />'
+          )
+          marker = '        <meta-data android:name="flutterEmbedding" android:value="2" />'
+          service = (
+              '        <service android:name="com.ryanheise.audioservice.AudioService" '
+              'android:foregroundServiceType="mediaPlayback" android:exported="true" '
+              'android:stopWithTask="false" />\n'
+              '        <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver" '
+              'android:exported="true"><intent-filter><action android:name="android.intent.action.MEDIA_BUTTON" />'
+              '</intent-filter></receiver>\n'
+          )
+          s = s.replace(marker, service + marker)
+          p.write_text(s)
+          PY2
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaMusic-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
