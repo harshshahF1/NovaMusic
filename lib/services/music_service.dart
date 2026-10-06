@@ -11,32 +11,36 @@ class MusicService {
     'audiobooks', 'talk', 'talk radio', 'kids', 'kid', 'children',
     'child', 'nursery', 'cartoon', 'lullaby', 'school', 'learning',
     'education', 'story', 'stories', 'bedtime', 'fairy tale',
+    'playlist', 'compilation', 'mix', 'radio', 'interview',
   };
 
   bool _isSong(Track t, String q) {
-    final content = (t.title + ' ' + t.artist + ' ' + (t.album ?? '')).toLowerCase();
-    if (_blocked.any((word) =>
-        RegExp(r'(^|[^a-z])' + RegExp.escape(word) + r'([^a-z]|$)').hasMatch(content))) {
-      return false;
-    }
+    final title = t.title.trim();
+    final artist = t.artist.trim();
+    final album = t.album?.trim() ?? '';
+    if (title.isEmpty || artist.isEmpty || title.toLowerCase() == 'untitled') return false;
+    if (artist.toLowerCase() == 'unknown artist' || artist.toLowerCase() == 'unknown') return false;
+    if (t.streamUrl.trim().isEmpty || !t.streamUrl.startsWith('http')) return false;
+    final content = '$title $artist $album'.toLowerCase();
+    if (_blocked.any((word) => RegExp(r'(^|[^a-z])' + RegExp.escape(word) + r'([^a-z]|$)').hasMatch(content))) return false;
     final tokens = q.toLowerCase().split(RegExp(r'\s+')).where((x) => x.isNotEmpty);
-    final titleArtist = (t.title + ' ' + t.artist).toLowerCase();
-    return tokens.every(titleArtist.contains);
+    final titleArtist = '$title $artist'.toLowerCase();
+    if (!tokens.every(titleArtist.contains)) return false;
+    final suspiciousArtist = RegExp(r'^(user|unknown|anonymous|various artists?|va|soundcloud|official audio|official music|music channel|channel)\s*[-_:#]?\s*\d*$', caseSensitive: false);
+    if (suspiciousArtist.hasMatch(artist)) return false;
+    return true;
   }
 
   Future<List<Track>> search(String query) async {
     final q = query.trim();
     if (q.isEmpty) return [];
-    final results = await Future.wait(
-      _providers.map((p) => p.search(q).catchError((_) => <Track>[])),
-    );
+    final results = await Future.wait(_providers.map((p) => p.search(q).catchError((_) => <Track>[])));
     final merged = results.expand((x) => x).where((t) => _isSong(t, q)).toList();
     final seen = <String>{};
     merged.retainWhere((t) {
       final key = t.title.trim().toLowerCase() + '|' + t.artist.trim().toLowerCase();
       return seen.add(key);
     });
-
     final lower = q.toLowerCase();
     int score(Track t) {
       final title = t.title.toLowerCase();
