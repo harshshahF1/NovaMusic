@@ -14,19 +14,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
       - name: Generate Android project
         run: flutter create --platforms=android --org com.harshshah --project-name nova_music .
-
       - name: Remove generated Flutter template test
         run: rm -f test/widget_test.dart
-
       - name: Configure Android media service
         shell: bash
         run: |
@@ -35,81 +31,68 @@ jobs:
           p = Path('android/app/src/main/AndroidManifest.xml')
           s = p.read_text()
           s = s.replace('android:label="nova_music"', 'android:label="NovaMusic"')
-          permissions = [
-              'android.permission.INTERNET',
-              'android.permission.FOREGROUND_SERVICE',
-              'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
-              'android.permission.WAKE_LOCK',
-          ]
-          insert = ''.join(
-              f'    <uses-permission android:name="{p}" />\\n'
-              for p in permissions
-              if f'android:name="{p}"' not in s
-          )
+          permissions = ['android.permission.INTERNET','android.permission.FOREGROUND_SERVICE','android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK','android.permission.WAKE_LOCK']
+          insert = ''.join(f'    <uses-permission android:name="{perm}" />\n' for perm in permissions if f'android:name="{perm}"' not in s)
           if insert:
               s = s.replace('\n    <application', '\n' + insert + '    <application', 1)
-          # Guarantee INTERNET is present even if the generated template changes.
-          if 'android.permission.INTERNET' not in s:
-              s = s.replace('<manifest', '<manifest\n    <uses-permission android:name="android.permission.INTERNET" />', 1)
           marker = '        <meta-data android:name="flutterEmbedding" android:value="2" />'
-          service = (
-              '        <service android:name="com.ryanheise.audioservice.AudioService" '
-              'android:foregroundServiceType="mediaPlayback" android:exported="true" '
-              'android:stopWithTask="false" />\n'
-              '        <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver" '
-              'android:exported="true"><intent-filter><action android:name="android.intent.action.MEDIA_BUTTON" />'
-              '</intent-filter></receiver>\n'
-          )
+          service = ('        <service android:name="com.ryanheise.audioservice.AudioService" android:foregroundServiceType="mediaPlayback" android:exported="true" android:stopWithTask="false" />\n'
+                     '        <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver" android:exported="true"><intent-filter><action android:name="android.intent.action.MEDIA_BUTTON" /></intent-filter></receiver>\n')
           s = s.replace(marker, service + marker)
           p.write_text(s)
           PY2
-
-      - name: Verify music search API
+      - name: Verify Audius search and real stream URLs
         run: |
           python3 - <<'PY'
           import json, urllib.parse, urllib.request
-          q=urllib.parse.urlencode({'query':'love','app_name':'NovaMusic','limit':'5','offset':'0'})
+          q=urllib.parse.urlencode({'query':'love','app_name':'NovaMusic','limit':'10','offset':'0'})
           u='https://api.audius.co/v1/tracks/search?'+q
           req=urllib.request.Request(u, headers={'User-Agent':'NovaMusic/1.0'})
           with urllib.request.urlopen(req, timeout=20) as r:
             body=json.load(r)
           data=body.get('data') or []
-          print('Audius HTTP:', r.status, 'results:', len(data))
-          if not data:
-            raise SystemExit('Audius search returned zero results')
+          print('Audius search HTTP:', r.status, 'results:', len(data))
+          if not data: raise SystemExit('Audius search returned zero results')
+          checked=0
+          for track in data:
+            track_id=str(track.get('id',''))
+            if not track_id: continue
+            stream='https://api.audius.co/v1/tracks/' + urllib.parse.quote(track_id, safe='') + '/stream?app_name=NovaMusic'
+            sreq=urllib.request.Request(stream, method='HEAD', headers={'User-Agent':'NovaMusic/1.0'})
+            try:
+              with urllib.request.urlopen(sreq, timeout=20) as sr:
+                print('Stream', track_id, 'HTTP:', sr.status, 'type:', sr.headers.get('Content-Type'))
+                if sr.status >= 400: raise SystemExit('Stream endpoint returned HTTP ' + str(sr.status))
+                checked += 1
+            except Exception as e:
+              print('HEAD failed, trying GET:', e)
+              greq=urllib.request.Request(stream, headers={'User-Agent':'NovaMusic/1.0','Range':'bytes=0-1023'})
+              with urllib.request.urlopen(greq, timeout=20) as gr:
+                print('Stream GET', track_id, 'HTTP:', gr.status, 'type:', gr.headers.get('Content-Type'))
+                if gr.status >= 400: raise
+                checked += 1
+            if checked >= 3: break
+          if checked == 0: raise SystemExit('Could not validate any Audius stream URL')
           PY
-
       - name: Validate Android network permissions
         run: |
           python3 - <<'PY'
           from pathlib import Path
           s = Path('android/app/src/main/AndroidManifest.xml').read_text()
-          required = [
-              'android.permission.INTERNET',
-              'android.permission.FOREGROUND_SERVICE',
-              'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
-              'android.permission.WAKE_LOCK',
-          ]
+          required = ['android.permission.INTERNET','android.permission.FOREGROUND_SERVICE','android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK','android.permission.WAKE_LOCK']
           missing = [p for p in required if p not in s]
-          if missing:
-              raise SystemExit('Missing Android permissions: ' + ', '.join(missing))
+          if missing: raise SystemExit('Missing Android permissions: ' + ', '.join(missing))
           print('Android network/media permissions validated')
           PY
-
       - name: Flutter pub get
         run: flutter pub get
-
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
-
       - name: Build release APK
         run: flutter build apk --release
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: NovaMusic-APK
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
-
-# NovaMusic CI validation
