@@ -7,6 +7,7 @@ class Track {
   final String streamUrl;
   final Duration? duration;
   final String source;
+  final String? youtubeVideoId;
 
   const Track({
     required this.id,
@@ -17,5 +18,8 @@ class Track {
     this.album,
     this.artworkUrl,
     this.duration,
+    this.youtubeVideoId,
   });
+
+  bool get isYouTube => source == 'youtube' && youtubeVideoId != null && youtubeVideoId!.isNotEmpty;
 }
