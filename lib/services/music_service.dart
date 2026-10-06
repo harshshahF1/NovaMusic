@@ -1,61 +1,69 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/track.dart';
-import 'audius_provider.dart';
-import 'jamendo_provider.dart';
-import 'music_provider.dart';
 
 class MusicService {
-  final List<MusicProvider> _providers = [AudiusProvider(), JamendoProvider()];
-
-  static const _blocked = <String>{
-    'podcast', 'podcasts', 'spoken word', 'spoken-word', 'audiobook',
-    'audiobooks', 'talk', 'talk radio', 'kids', 'kid', 'children',
-    'child', 'nursery', 'cartoon', 'lullaby', 'school', 'learning',
-    'education', 'story', 'stories', 'bedtime', 'fairy tale',
-    'playlist', 'compilation', 'mix', 'radio', 'interview',
-  };
-
-  bool _isSong(Track t, String q) {
-    final title = t.title.trim();
-    final artist = t.artist.trim();
-    final album = t.album?.trim() ?? '';
-    if (title.isEmpty || artist.isEmpty || title.toLowerCase() == 'untitled') return false;
-    if (artist.toLowerCase() == 'unknown artist' || artist.toLowerCase() == 'unknown') return false;
-    if (t.streamUrl.trim().isEmpty || !t.streamUrl.startsWith('http')) return false;
-    final content = '$title $artist $album'.toLowerCase();
-    if (_blocked.any((word) => RegExp(r'(^|[^a-z])' + RegExp.escape(word) + r'([^a-z]|$)').hasMatch(content))) return false;
-    final tokens = q.toLowerCase().split(RegExp(r'\s+')).where((x) => x.isNotEmpty);
-    final titleArtist = '$title $artist'.toLowerCase();
-    if (!tokens.every(titleArtist.contains)) return false;
-    final suspiciousArtist = RegExp(r'^(user|unknown|anonymous|various artists?|va|soundcloud|official audio|official music|music channel|channel)\s*[-_:#]?\s*\d*$', caseSensitive: false);
-    if (suspiciousArtist.hasMatch(artist)) return false;
-    return true;
-  }
+  static const _apiKey = String.fromEnvironment('YOUTUBE_API_KEY');
 
   Future<List<Track>> search(String query) async {
     final q = query.trim();
     if (q.isEmpty) return [];
-    final results = await Future.wait(_providers.map((p) => p.search(q).catchError((_) => <Track>[])));
-    final merged = results.expand((x) => x).where((t) => _isSong(t, q)).toList();
-    final seen = <String>{};
-    merged.retainWhere((t) {
-      final key = t.title.trim().toLowerCase() + '|' + t.artist.trim().toLowerCase();
-      return seen.add(key);
-    });
-    final lower = q.toLowerCase();
-    int score(Track t) {
-      final title = t.title.toLowerCase();
-      final artist = t.artist.toLowerCase();
-      if (title == lower) return 0;
-      if (title.startsWith(lower)) return 1;
-      if (title.contains(lower)) return 2;
-      if (artist == lower) return 3;
-      if (artist.startsWith(lower)) return 4;
-      return 5;
+    if (_apiKey.isEmpty) {
+      throw StateError('YouTube search is not configured. Add YOUTUBE_API_KEY to the app build.');
     }
-    merged.sort((a, b) {
-      final s = score(a).compareTo(score(b));
-      return s != 0 ? s : a.title.toLowerCase().compareTo(b.title.toLowerCase());
+
+    final uri = Uri.https('www.googleapis.com', '/youtube/v3/search', {
+      'part': 'snippet',
+      'q': q,
+      'type': 'video',
+      'videoEmbeddable': 'true',
+      'videoSyndicated': 'true',
+      'maxResults': '25',
+      'regionCode': 'IN',
+      'relevanceLanguage': 'en',
+      'key': _apiKey,
     });
-    return merged;
+    final res = await http.get(uri).timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) throw Exception('YouTube search failed (${res.statusCode})');
+
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final items = (body['items'] as List<dynamic>? ?? []);
+    final results = <Track>[];
+
+    for (final raw in items) {
+      final item = raw as Map<String, dynamic>;
+      final id = (item['id'] as Map<String, dynamic>?)?['videoId']?.toString();
+      final snippet = item['snippet'] as Map<String, dynamic>?;
+      if (id == null || snippet == null) continue;
+
+      final title = _clean(snippet['title']?.toString() ?? '');
+      final artist = _clean(snippet['channelTitle']?.toString() ?? '');
+      if (title.isEmpty || artist.isEmpty) continue;
+
+      final thumbs = snippet['thumbnails'] as Map<String, dynamic>?;
+      final maxres = thumbs?['maxres'] as Map<String, dynamic>?;
+      final high = thumbs?['high'] as Map<String, dynamic>?;
+      final medium = thumbs?['medium'] as Map<String, dynamic>?;
+      final artwork = (maxres?['url'] ?? high?['url'] ?? medium?['url'])?.toString();
+
+      results.add(Track(
+        id: 'yt_$id',
+        title: title,
+        artist: artist,
+        album: 'YouTube',
+        artworkUrl: artwork,
+        streamUrl: '',
+        source: 'youtube',
+        youtubeVideoId: id,
+      ));
+    }
+    return results;
   }
+
+  String _clean(String value) => value
+      .replaceAll(RegExp(r'<[^>]*>'), '')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&quot;', '"')
+      .trim();
 }
