@@ -7,8 +7,14 @@ import 'screens/home_screen.dart';
 NovaAudioHandler? audioHandler;
 final musicService = MusicService();
 
-Future<void> initAudioHandler() async {
-  if (audioHandler != null) return;
+Future<void>? _audioInit;
+
+Future<void> initAudioHandler() {
+  if (audioHandler != null) return Future.value();
+  return _audioInit ??= _createAudioHandler();
+}
+
+Future<void> _createAudioHandler() async {
   try {
     audioHandler = await AudioService.init(
       builder: () => NovaAudioHandler(),
@@ -16,11 +22,14 @@ Future<void> initAudioHandler() async {
         androidNotificationChannelId: 'com.harshshah.novamusic.playback',
         androidNotificationChannelName: 'NovaMusic playback',
         androidNotificationOngoing: true,
-        androidStopForegroundOnPause: true,
+        androidStopForegroundOnPause: false,
+        androidNotificationIcon: 'mipmap/ic_launcher',
+        androidResumeOnClick: true,
       ),
     );
   } catch (_) {
-    // Keep the main UI available even if Android media-service initialization fails.
+    audioHandler = null;
+    _audioInit = null;
   }
 }
 
@@ -40,6 +49,10 @@ class NovaMusicApp extends StatelessWidget {
     theme: ThemeData(
       brightness: Brightness.dark,
       scaffoldBackgroundColor: const Color(0xFF08090D),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF9B5CFF),
+        brightness: Brightness.dark,
+      ),
       useMaterial3: true,
     ),
     home: const HomeScreen(),
