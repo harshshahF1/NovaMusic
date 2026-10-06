@@ -24,6 +24,9 @@ jobs:
       - name: Generate Android project
         run: flutter create --platforms=android --org com.harshshah --project-name nova_music .
 
+      - name: Remove generated Flutter template test
+        run: rm -f test/widget_test.dart
+
       - name: Configure Android media service
         shell: bash
         run: |
