@@ -41,38 +41,74 @@ jobs:
           s = s.replace(marker, service + marker)
           p.write_text(s)
           PY2
-      - name: Verify Audius search and real stream URLs
+      - name: Verify Audius search and a playable stream candidate
         run: |
           python3 - <<'PY'
           import json, urllib.parse, urllib.request
-          q=urllib.parse.urlencode({'query':'love','app_name':'NovaMusic','limit':'10','offset':'0'})
-          u='https://api.audius.co/v1/tracks/search?'+q
-          req=urllib.request.Request(u, headers={'User-Agent':'NovaMusic/1.0'})
+
+          q = urllib.parse.urlencode({
+              'query': 'love',
+              'app_name': 'NovaMusic',
+              'limit': '15',
+              'offset': '0',
+          })
+          search_url = 'https://api.audius.co/v1/tracks/search?' + q
+          req = urllib.request.Request(
+              search_url,
+              headers={'User-Agent': 'NovaMusic/1.0'},
+          )
+
           with urllib.request.urlopen(req, timeout=20) as r:
-            body=json.load(r)
-          data=body.get('data') or []
-          print('Audius search HTTP:', r.status, 'results:', len(data))
-          if not data: raise SystemExit('Audius search returned zero results')
-          checked=0
+              body = json.load(r)
+              status = r.status
+
+          data = body.get('data') or []
+          print('Audius search HTTP:', status, 'results:', len(data))
+          if not data:
+              raise SystemExit('Audius search returned zero results')
+
+          # Audius can legitimately return 403 for individual CDN/stream candidates.
+          # CI should require at least one genuinely playable candidate, not every result.
+          playable = 0
           for track in data:
-            track_id=str(track.get('id',''))
-            if not track_id: continue
-            stream='https://api.audius.co/v1/tracks/' + urllib.parse.quote(track_id, safe='') + '/stream?app_name=NovaMusic'
-            sreq=urllib.request.Request(stream, method='HEAD', headers={'User-Agent':'NovaMusic/1.0'})
-            try:
-              with urllib.request.urlopen(sreq, timeout=20) as sr:
-                print('Stream', track_id, 'HTTP:', sr.status, 'type:', sr.headers.get('Content-Type'))
-                if sr.status >= 400: raise SystemExit('Stream endpoint returned HTTP ' + str(sr.status))
-                checked += 1
-            except Exception as e:
-              print('HEAD failed, trying GET:', e)
-              greq=urllib.request.Request(stream, headers={'User-Agent':'NovaMusic/1.0','Range':'bytes=0-1023'})
-              with urllib.request.urlopen(greq, timeout=20) as gr:
-                print('Stream GET', track_id, 'HTTP:', gr.status, 'type:', gr.headers.get('Content-Type'))
-                if gr.status >= 400: raise
-                checked += 1
-            if checked >= 3: break
-          if checked == 0: raise SystemExit('Could not validate any Audius stream URL')
+              track_id = str(track.get('id') or '')
+              if not track_id:
+                  continue
+
+              stream = (
+                  'https://api.audius.co/v1/tracks/'
+                  + urllib.parse.quote(track_id, safe='')
+                  + '/stream?app_name=NovaMusic'
+              )
+
+              headers = {
+                  'User-Agent': 'NovaMusic/1.0',
+                  'Range': 'bytes=0-4095',
+              }
+
+              try:
+                  greq = urllib.request.Request(stream, headers=headers)
+                  with urllib.request.urlopen(greq, timeout=20) as sr:
+                      content_type = (sr.headers.get('Content-Type') or '').lower()
+                      print(
+                          'Stream', track_id,
+                          'HTTP:', sr.status,
+                          'type:', content_type,
+                      )
+                      if sr.status in (200, 206) and (
+                          content_type.startswith('audio/')
+                          or 'mpeg' in content_type
+                          or 'octet-stream' in content_type
+                      ):
+                          playable += 1
+                          print('Playable Audius stream candidate found.')
+                          break
+              except Exception as e:
+                  # One unavailable/forbidden track must not invalidate the provider.
+                  print('Candidate', track_id, 'unavailable:', e)
+
+          if playable == 0:
+              raise SystemExit('No playable Audius stream candidate was available')
           PY
       - name: Validate Android network permissions
         run: |
