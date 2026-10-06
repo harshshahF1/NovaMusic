@@ -18,6 +18,7 @@ class LibraryService {
     'streamUrl': t.streamUrl,
     'duration': t.duration?.inSeconds,
     'source': t.source,
+    'youtubeVideoId': t.youtubeVideoId,
   };
 
   Track _track(Map<String, dynamic> m) => Track(
@@ -29,6 +30,7 @@ class LibraryService {
     streamUrl: m['streamUrl']?.toString() ?? '',
     duration: m['duration'] == null ? null : Duration(seconds: (m['duration'] as num).toInt()),
     source: m['source']?.toString() ?? 'audius',
+    youtubeVideoId: m['youtubeVideoId']?.toString(),
   );
 
   Future<List<Track>> _read(String key) async {
