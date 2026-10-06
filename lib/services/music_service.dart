@@ -6,16 +6,32 @@ import 'music_provider.dart';
 class MusicService {
   final List<MusicProvider> _providers = [AudiusProvider(), JamendoProvider()];
 
+  static const _blocked = <String>{
+    'podcast', 'podcasts', 'spoken word', 'spoken-word', 'audiobook',
+    'audiobooks', 'talk', 'talk radio', 'kids', 'kid', 'children',
+    'child', 'nursery', 'cartoon', 'lullaby', 'school', 'learning',
+    'education', 'story', 'stories', 'bedtime', 'fairy tale',
+  };
+
+  bool _isSong(Track t, String q) {
+    final content = (t.title + ' ' + t.artist + ' ' + (t.album ?? '')).toLowerCase();
+    if (_blocked.any((word) =>
+        RegExp(r'(^|[^a-z])' + RegExp.escape(word) + r'([^a-z]|$)').hasMatch(content))) {
+      return false;
+    }
+    final tokens = q.toLowerCase().split(RegExp(r'\s+')).where((x) => x.isNotEmpty);
+    final titleArtist = (t.title + ' ' + t.artist).toLowerCase();
+    return tokens.every(titleArtist.contains);
+  }
+
   Future<List<Track>> search(String query) async {
     final q = query.trim();
     if (q.isEmpty) return [];
-
     final results = await Future.wait(
       _providers.map((p) => p.search(q).catchError((_) => <Track>[])),
     );
-    final merged = results.expand((x) => x).toList();
+    final merged = results.expand((x) => x).where((t) => _isSong(t, q)).toList();
     final seen = <String>{};
-
     merged.retainWhere((t) {
       final key = t.title.trim().toLowerCase() + '|' + t.artist.trim().toLowerCase();
       return seen.add(key);
@@ -28,10 +44,14 @@ class MusicService {
       if (title == lower) return 0;
       if (title.startsWith(lower)) return 1;
       if (title.contains(lower)) return 2;
-      if (artist.contains(lower)) return 4;
+      if (artist == lower) return 3;
+      if (artist.startsWith(lower)) return 4;
       return 5;
     }
-    merged.sort((a, b) => score(a).compareTo(score(b)));
+    merged.sort((a, b) {
+      final s = score(a).compareTo(score(b));
+      return s != 0 ? s : a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    });
     return merged;
   }
 }
