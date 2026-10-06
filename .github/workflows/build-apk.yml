@@ -55,6 +55,21 @@ jobs:
           p.write_text(s)
           PY2
 
+      - name: Verify music search API
+        run: |
+          python3 - <<'PY'
+          import json, urllib.parse, urllib.request
+          q=urllib.parse.urlencode({'query':'love','app_name':'NovaMusic','limit':'5','offset':'0'})
+          u='https://api.audius.co/v1/tracks/search?'+q
+          req=urllib.request.Request(u, headers={'User-Agent':'NovaMusic/1.0'})
+          with urllib.request.urlopen(req, timeout=20) as r:
+            body=json.load(r)
+          data=body.get('data') or []
+          print('Audius HTTP:', r.status, 'results:', len(data))
+          if not data:
+            raise SystemExit('Audius search returned zero results')
+          PY
+
       - name: Flutter pub get
         run: flutter pub get
 
